@@ -49,7 +49,16 @@ public class walletcontroller {
                 HttpStatus.CREATED
         );
     }
+ //Get user
+    @GetMapping("/users/{msisdn}")
+    public ResponseEntity<walletresponse>
+    getUser(@PathVariable String msisdn) {
 
+        walletresponse response =
+                walletService.getBalance(msisdn);
+
+        return ResponseEntity.ok(response);
+    }
 
     // GET BALANCE
     @GetMapping("/wallets/{msisdn}/balance")
