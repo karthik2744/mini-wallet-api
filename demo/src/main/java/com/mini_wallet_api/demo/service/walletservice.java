@@ -5,22 +5,29 @@ import com.mini_wallet_api.demo.dto.transactionresponse;
 import com.mini_wallet_api.demo.dto.walletresponse;
 import com.mini_wallet_api.demo.entity.transaction;
 import com.mini_wallet_api.demo.entity.wallet;
+import com.mini_wallet_api.demo.enums.transactionstatus;
+import com.mini_wallet_api.demo.enums.transactiontype;
 import com.mini_wallet_api.demo.exception.customexception;
 import com.mini_wallet_api.demo.repository.transactionrepository;
 import com.mini_wallet_api.demo.repository.walletrepository;
 
 import jakarta.transaction.Transactional;
 
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 public class walletservice {
 
     @Autowired
@@ -31,7 +38,10 @@ public class walletservice {
 
 
     // CREATE USER
+    @Transactional
     public wallet createUser(String msisdn) {
+
+        log.info("Creating user: {}", msisdn);
 
         wallet existingWallet = walletRepository
                 .findByMsisdn(msisdn)
@@ -48,122 +58,93 @@ public class walletservice {
         wallet wallet = new wallet();
 
         wallet.setMsisdn(msisdn);
-        wallet.setBalance(0.0);
-        wallet.setCreatedAt(LocalDateTime.now());
+
+        wallet.setBalance(BigDecimal.ZERO);
 
         return walletRepository.save(wallet);
     }
 
 
     // GET BALANCE
+    @Transactional(Transactional.TxType.SUPPORTS)
     public walletresponse getBalance(String msisdn) {
 
-        wallet wallet = walletRepository
-                .findByMsisdn(msisdn)
-                .orElseThrow(() ->
-                        new customexception(
-                                "User not found",
-                                HttpStatus.NOT_FOUND
-                        ));
+        wallet wallet = getWallet(msisdn);
 
-        walletresponse response = new walletresponse();
-
-        response.setMsisdn(wallet.getMsisdn());
-        response.setBalance(wallet.getBalance());
-        response.setId(wallet.getId());
-
-        return response;
+        return mapWallet(wallet);
     }
 
 
     // DEPOSIT
     @Transactional
-    public walletresponse deposit(String msisdn,
-                                  amountrequest request) {
+    public walletresponse deposit(
+            String msisdn,
+            amountrequest request) {
 
-        wallet wallet = walletRepository
-                .findByMsisdn(msisdn)
-                .orElseThrow(() ->
-                        new customexception(
-                                "User not found",
-                                HttpStatus.NOT_FOUND
-                        ));
-        if (request.getAmount() <= 0) {
+        log.info(
+                "Deposit request for {} amount {}",
+                msisdn,
+                request.getAmount()
+        );
 
-            throw new customexception(
-                    "Amount must be greater than zero",
-                    HttpStatus.BAD_REQUEST
-            );
-        }
+        wallet wallet = getWallet(msisdn);
 
-
-        Double updatedBalance =
-                wallet.getBalance() + request.getAmount();
+        BigDecimal updatedBalance =
+                wallet.getBalance()
+                        .add(request.getAmount());
 
         wallet.setBalance(updatedBalance);
 
         walletRepository.save(wallet);
 
 
-        // CREATE TRANSACTION
-        transaction transaction = new transaction();
+        transaction transaction =
+                new transaction();
 
-        transaction.setReferenceId(generateReferenceId());
+        transaction.setReferenceId(
+                generateReferenceId()
+        );
 
-        transaction.setTransactionType("CREDIT");
+        transaction.setTransactionType(
+                transactiontype.CREDIT
+        );
 
-        transaction.setAmount(request.getAmount());
+        transaction.setAmount(
+                request.getAmount()
+        );
 
-        transaction.setAvailableBalance(updatedBalance);
+        transaction.setAvailableBalance(
+                updatedBalance
+        );
 
-        transaction.setStatus("SUCCESS");
-
-        transaction.setCreatedAt(LocalDateTime.now());
+        transaction.setStatus(
+                transactionstatus.SUCCESS
+        );
 
         transaction.setWallet(wallet);
 
         transactionRepository.save(transaction);
 
-
-        walletresponse response =
-                new walletresponse();
-
-        response.setId(wallet.getId());
-
-        response.setMsisdn(wallet.getMsisdn());
-
-        response.setBalance(updatedBalance);
-
-        response.setCreatedAt(
-                wallet.getCreatedAt()
-        );
-
-        return response;
+        return mapWallet(wallet);
     }
 
 
     // WITHDRAW
     @Transactional
-    public walletresponse withdraw(String msisdn,
-                                   amountrequest request) {
+    public walletresponse withdraw(
+            String msisdn,
+            amountrequest request) {
 
-        wallet wallet = walletRepository
-                .findByMsisdn(msisdn)
-                .orElseThrow(() ->
-                        new customexception(
-                                "User not found",
-                                HttpStatus.NOT_FOUND
-                        ));
-        if (request.getAmount() <= 0) {
+        log.info(
+                "Withdraw request for {} amount {}",
+                msisdn,
+                request.getAmount()
+        );
 
-            throw new customexception(
-                    "Amount must be greater than zero",
-                    HttpStatus.BAD_REQUEST
-            );
-        }
+        wallet wallet = getWallet(msisdn);
 
-
-        if (wallet.getBalance() < request.getAmount()) {
+        if (wallet.getBalance()
+                .compareTo(request.getAmount()) < 0) {
 
             throw new customexception(
                     "Insufficient balance",
@@ -171,101 +152,66 @@ public class walletservice {
             );
         }
 
-
-        Double updatedBalance =
-                wallet.getBalance() - request.getAmount();
+        BigDecimal updatedBalance =
+                wallet.getBalance()
+                        .subtract(request.getAmount());
 
         wallet.setBalance(updatedBalance);
 
         walletRepository.save(wallet);
 
 
-        // CREATE TRANSACTION
-        transaction transaction = new transaction();
+        transaction transaction =
+                new transaction();
 
-        transaction.setReferenceId(generateReferenceId());
+        transaction.setReferenceId(
+                generateReferenceId()
+        );
 
-        transaction.setTransactionType("DEBIT");
+        transaction.setTransactionType(
+                transactiontype.DEBIT
+        );
 
-        transaction.setAmount(request.getAmount());
+        transaction.setAmount(
+                request.getAmount()
+        );
 
-        transaction.setAvailableBalance(updatedBalance);
+        transaction.setAvailableBalance(
+                updatedBalance
+        );
 
-        transaction.setStatus("SUCCESS");
-
-        transaction.setCreatedAt(LocalDateTime.now());
+        transaction.setStatus(
+                transactionstatus.SUCCESS
+        );
 
         transaction.setWallet(wallet);
 
         transactionRepository.save(transaction);
 
-
-        walletresponse response =
-                new walletresponse();
-
-        response.setId(wallet.getId());
-
-        response.setMsisdn(wallet.getMsisdn());
-
-        response.setBalance(updatedBalance);
-
-        response.setCreatedAt(
-                wallet.getCreatedAt()
-        );
-
-        return response;
+        return mapWallet(wallet);
     }
 
 
     // GET ALL TRANSACTIONS
+    @Transactional(Transactional.TxType.SUPPORTS)
     public List<transactionresponse>
     getTransactions(String msisdn) {
 
-        wallet wallet = walletRepository
-                .findByMsisdn(msisdn)
-                .orElseThrow(() ->
-                        new customexception(
-                                "User not found",
-                                HttpStatus.NOT_FOUND
-                        ));
+        wallet wallet = getWallet(msisdn);
 
-
-        List<transaction> transactions =
-                transactionRepository.findByWallet(wallet);
-
-
-        return transactions.stream().map(t -> {
-
-            transactionresponse response =
-                    new transactionresponse();
-
-            response.setReferenceId(
-                    t.getReferenceId());
-
-            response.setTransactionType(
-                    t.getTransactionType());
-
-            response.setAmount(
-                    t.getAmount());
-
-            response.setAvailableBalance(
-                    t.getAvailableBalance());
-
-            response.setStatus(
-                    t.getStatus());
-
-            response.setCreatedAt(
-                    t.getCreatedAt());
-
-            return response;
-
-        }).collect(Collectors.toList());
+        return transactionRepository
+                .findByWallet(wallet)
+                .stream()
+                .map(this::mapTransaction)
+                .collect(Collectors.toList());
     }
 
 
     // GET SINGLE TRANSACTION
+    @Transactional(Transactional.TxType.SUPPORTS)
     public transactionresponse
-    getTransactionByReferenceId(String referenceId) {
+    getTransactionByReferenceId(
+            String referenceId) {
 
         transaction transaction =
                 transactionRepository
@@ -276,54 +222,112 @@ public class walletservice {
                                         HttpStatus.NOT_FOUND
                                 ));
 
+        return mapTransaction(transaction);
+    }
+
+
+    // GET ALL USERS
+    @Transactional(Transactional.TxType.SUPPORTS)
+    public List<walletresponse> getAllUsers(
+            int page,
+            int size) {
+
+        Pageable pageable =
+                PageRequest.of(page, size);
+
+        return walletRepository
+                .findAll(pageable)
+                .stream()
+                .map(this::mapWallet)
+                .collect(Collectors.toList());
+    }
+
+    // DELETE USER
+    @Transactional
+    public void deleteUser(String msisdn) {
+
+        wallet wallet = getWallet(msisdn);
+
+        transactionRepository.deleteAll(
+                transactionRepository.findByWallet(wallet)
+        );
+
+        walletRepository.delete(wallet);
+
+        log.info("Deleted user: {}", msisdn);
+    }
+
+
+    // GET WALLET HELPER
+    private wallet getWallet(String msisdn) {
+
+        return walletRepository
+                .findByMsisdn(msisdn)
+                .orElseThrow(() ->
+                        new customexception(
+                                "User not found",
+                                HttpStatus.NOT_FOUND
+                        ));
+    }
+
+
+    // MAP WALLET RESPONSE
+    private walletresponse mapWallet(
+            wallet wallet) {
+
+        walletresponse response =
+                new walletresponse();
+
+        response.setId(wallet.getId());
+
+        response.setMsisdn(wallet.getMsisdn());
+
+        response.setBalance(wallet.getBalance());
+
+        response.setCreatedAt(
+                wallet.getCreatedAt()
+        );
+
+        return response;
+    }
+
+
+    // MAP TRANSACTION RESPONSE
+    private transactionresponse mapTransaction(
+            transaction transaction) {
 
         transactionresponse response =
                 new transactionresponse();
 
         response.setReferenceId(
-                transaction.getReferenceId());
+                transaction.getReferenceId()
+        );
 
         response.setTransactionType(
-                transaction.getTransactionType());
+                transaction.getTransactionType()
+                        .name()
+        );
 
         response.setAmount(
-                transaction.getAmount());
+                transaction.getAmount()
+        );
 
         response.setAvailableBalance(
-                transaction.getAvailableBalance());
+                transaction.getAvailableBalance()
+        );
 
         response.setStatus(
-                transaction.getStatus());
+                transaction.getStatus()
+                        .name()
+        );
 
         response.setCreatedAt(
-                transaction.getCreatedAt());
+                transaction.getCreatedAt()
+        );
 
         return response;
     }
-    public List<walletresponse> getAllUsers() {
 
-        List<wallet> wallets =
-                walletRepository.findAll();
-
-        return wallets.stream().map(wallet -> {
-
-            walletresponse response =
-                    new walletresponse();
-
-            response.setId(wallet.getId());
-
-            response.setMsisdn(wallet.getMsisdn());
-
-            response.setBalance(wallet.getBalance());
-
-            response.setCreatedAt(
-                    wallet.getCreatedAt()
-            );
-
-            return response;
-
-        }).toList();
-    }
 
     // GENERATE REFERENCE ID
     private String generateReferenceId() {

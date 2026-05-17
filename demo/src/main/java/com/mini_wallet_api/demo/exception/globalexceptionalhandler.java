@@ -1,6 +1,7 @@
 package com.mini_wallet_api.demo.exception;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -18,20 +19,14 @@ public class globalexceptionalhandler {
         Map<String, Object> response =
                 new HashMap<>();
 
-        response.put(
-                "timestamp",
-                LocalDateTime.now()
-        );
+        response.put("timestamp",
+                LocalDateTime.now());
 
-        response.put(
-                "status",
-                ex.getStatus().value()
-        );
+        response.put("status",
+                ex.getStatus().value());
 
-        response.put(
-                "message",
-                ex.getMessage()
-        );
+        response.put("message",
+                ex.getMessage());
 
         return new ResponseEntity<>(
                 response,
@@ -40,30 +35,29 @@ public class globalexceptionalhandler {
     }
 
 
-    @ExceptionHandler(Exception.class)
+    @ExceptionHandler(
+            MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>>
-    handleException(Exception ex) {
+    handleValidation(
+            MethodArgumentNotValidException ex) {
 
         Map<String, Object> response =
                 new HashMap<>();
 
-        response.put(
-                "timestamp",
-                LocalDateTime.now()
-        );
+        response.put("timestamp",
+                LocalDateTime.now());
 
-        response.put(
-                "status",
-                500
-        );
+        response.put("status", 400);
 
         response.put(
                 "message",
-                "Internal Server Error"
+                ex.getBindingResult()
+                        .getFieldError()
+                        .getDefaultMessage()
         );
 
         return ResponseEntity
-                .internalServerError()
+                .badRequest()
                 .body(response);
     }
 }

@@ -1,3 +1,5 @@
+package com.mini_wallet_api.demo.dto;
+
 import java.time.LocalDateTime;
 
 public class userresponse {

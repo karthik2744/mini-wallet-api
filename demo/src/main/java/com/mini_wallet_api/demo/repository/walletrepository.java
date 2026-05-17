@@ -5,10 +5,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
 
-public interface walletrepository extends JpaRepository<wallet, Long> {
+public interface walletrepository
+        extends JpaRepository<wallet, Long> {
 
     Optional<wallet> findByMsisdn(String msisdn);
-
 }
-
-

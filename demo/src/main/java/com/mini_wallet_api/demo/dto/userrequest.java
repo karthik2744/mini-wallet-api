@@ -1,3 +1,5 @@
+package com.mini_wallet_api.demo.dto;
+
 public class userrequest {
 
     private String msisdn;

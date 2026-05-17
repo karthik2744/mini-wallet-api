@@ -1,4 +1,4 @@
-// apiresponse.java
+package com.mini_wallet_api.demo.dto;// apiresponse.java
 
 import java.time.LocalDateTime;
 

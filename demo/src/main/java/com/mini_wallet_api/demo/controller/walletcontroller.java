@@ -8,6 +8,7 @@ import com.mini_wallet_api.demo.dto.walletresponse;
 import com.mini_wallet_api.demo.entity.wallet;
 import com.mini_wallet_api.demo.service.walletservice;
 
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -75,13 +76,21 @@ public class walletcontroller {
     // DEPOSIT
     @PostMapping("/wallets/{msisdn}/deposit")
     public ResponseEntity<walletresponse>
-    deposit(@PathVariable String msisdn,
-            @RequestBody amountrequest request) {
+    deposit(
 
-        walletresponse response =
-                walletService.deposit(msisdn, request);
+            @PathVariable String msisdn,
 
-        return ResponseEntity.ok(response);
+            @Valid
+            @RequestBody
+            amountrequest request
+    ) {
+
+        return ResponseEntity.ok(
+                walletService.deposit(
+                        msisdn,
+                        request
+                )
+        );
     }
 
 
@@ -89,6 +98,7 @@ public class walletcontroller {
     @PostMapping("/wallets/{msisdn}/withdraw")
     public ResponseEntity<walletresponse>
     withdraw(@PathVariable String msisdn,
+             @Valid
              @RequestBody amountrequest request) {
 
         walletresponse response =
@@ -126,10 +136,20 @@ public class walletcontroller {
     //GET ALL USERS
     @GetMapping("/users")
     public ResponseEntity<List<walletresponse>>
-    getAllUsers() {
+    getAllUsers(
+
+            @RequestParam(defaultValue = "0")
+            int page,
+
+            @RequestParam(defaultValue = "10")
+            int size
+    ) {
 
         List<walletresponse> responses =
-                walletService.getAllUsers();
+                walletService.getAllUsers(
+                        page,
+                        size
+                );
 
         return ResponseEntity.ok(responses);
     }
