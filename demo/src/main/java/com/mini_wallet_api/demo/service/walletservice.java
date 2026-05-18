@@ -11,7 +11,10 @@ import com.mini_wallet_api.demo.exception.customexception;
 import com.mini_wallet_api.demo.repository.transactionrepository;
 import com.mini_wallet_api.demo.repository.walletrepository;
 
-import jakarta.transaction.Transactional;
+
+
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -28,6 +31,7 @@ import java.util.stream.Collectors;
 
 @Service
 @Slf4j
+
 public class walletservice {
 
     @Autowired
@@ -35,6 +39,8 @@ public class walletservice {
 
     @Autowired
     private transactionrepository transactionRepository;
+    @Autowired
+    private transactionservice transactionservice;
 
 
     // CREATE USER
@@ -66,7 +72,7 @@ public class walletservice {
 
 
     // GET BALANCE
-    @Transactional(Transactional.TxType.SUPPORTS)
+    @Transactional(readOnly = true)
     public walletresponse getBalance(String msisdn) {
 
         wallet wallet = getWallet(msisdn);
@@ -88,6 +94,50 @@ public class walletservice {
         );
 
         wallet wallet = getWallet(msisdn);
+
+
+        if (request.getAmount()
+                .compareTo(BigDecimal.ZERO) <= 0) {
+
+            transaction failedTransaction =
+                    new transaction();
+
+            failedTransaction.setReferenceId(
+                    generateReferenceId()
+            );
+
+            failedTransaction.setTransactionType(
+                    transactiontype.CREDIT
+            );
+
+            failedTransaction.setAmount(
+                    request.getAmount()
+            );
+
+            failedTransaction.setAvailableBalance(
+                    wallet.getBalance()
+            );
+
+            failedTransaction.setStatus(
+                    transactionstatus.FAILED
+            );
+
+            failedTransaction.setWallet(wallet);
+
+            transactionservice.saveTransaction(
+                    failedTransaction
+            );
+
+            log.warn(
+                    "Failed deposit for {} due to invalid amount",
+                    msisdn
+            );
+
+            throw new customexception(
+                    "Amount must be greater than zero",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
 
         BigDecimal updatedBalance =
                 wallet.getBalance()
@@ -142,9 +192,85 @@ public class walletservice {
         );
 
         wallet wallet = getWallet(msisdn);
+        if (request.getAmount()
+                .compareTo(BigDecimal.ZERO) <= 0) {
+
+            transaction failedTransaction =
+                    new transaction();
+
+            failedTransaction.setReferenceId(
+                    generateReferenceId()
+            );
+
+            failedTransaction.setTransactionType(
+                    transactiontype.DEBIT
+            );
+
+            failedTransaction.setAmount(
+                    request.getAmount()
+            );
+
+            failedTransaction.setAvailableBalance(
+                    wallet.getBalance()
+            );
+
+            failedTransaction.setStatus(
+                    transactionstatus.FAILED
+            );
+
+            failedTransaction.setWallet(wallet);
+
+            transactionservice.saveTransaction(
+                    failedTransaction
+            );
+
+            log.warn(
+                    "Failed withdraw for {} due to invalid amount",
+                    msisdn
+            );
+
+            throw new customexception(
+                    "Amount must be greater than zero",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
 
         if (wallet.getBalance()
                 .compareTo(request.getAmount()) < 0) {
+
+            transaction failedTransaction =
+                    new transaction();
+
+            failedTransaction.setReferenceId(
+                    generateReferenceId()
+            );
+
+            failedTransaction.setTransactionType(
+                    transactiontype.DEBIT
+            );
+
+            failedTransaction.setAmount(
+                    request.getAmount()
+            );
+
+            failedTransaction.setAvailableBalance(
+                    wallet.getBalance()
+            );
+
+            failedTransaction.setStatus(
+                    transactionstatus.FAILED
+            );
+
+            failedTransaction.setWallet(wallet);
+
+            transactionservice.saveTransaction(
+                    failedTransaction
+            );
+
+            log.warn(
+                    "Failed withdraw for {} due to insufficient balance",
+                    msisdn
+            );
 
             throw new customexception(
                     "Insufficient balance",
@@ -193,9 +319,9 @@ public class walletservice {
 
 
     // GET ALL TRANSACTIONS
-    @Transactional(Transactional.TxType.SUPPORTS)
+    @Transactional(readOnly = true)
     public List<transactionresponse>
-    getTransactions(String msisdn) {
+    getTransactions(String msisdn){
 
         wallet wallet = getWallet(msisdn);
 
@@ -208,7 +334,7 @@ public class walletservice {
 
 
     // GET SINGLE TRANSACTION
-    @Transactional(Transactional.TxType.SUPPORTS)
+    @Transactional(readOnly = true)
     public transactionresponse
     getTransactionByReferenceId(
             String referenceId) {
@@ -227,10 +353,9 @@ public class walletservice {
 
 
     // GET ALL USERS
-    @Transactional(Transactional.TxType.SUPPORTS)
-    public List<walletresponse> getAllUsers(
-            int page,
-            int size) {
+    @Transactional(readOnly = true)
+    public List<walletresponse>
+    getAllUsers(int page, int size) {
 
         Pageable pageable =
                 PageRequest.of(page, size);
@@ -338,4 +463,5 @@ public class walletservice {
                         .substring(0, 8)
                         .toUpperCase();
     }
+
 }

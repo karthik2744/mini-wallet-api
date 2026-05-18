@@ -62,7 +62,7 @@ public class walletcontroller {
     }
 
     // GET BALANCE
-    @GetMapping("/wallets/{msisdn}/balance")
+    @GetMapping("/wallets/balance/{msisdn}")
     public ResponseEntity<walletresponse>
     getBalance(@PathVariable String msisdn) {
 
@@ -74,7 +74,7 @@ public class walletcontroller {
 
 
     // DEPOSIT
-    @PostMapping("/wallets/{msisdn}/deposit")
+    @PostMapping("/wallets/deposit/{msisdn}")
     public ResponseEntity<walletresponse>
     deposit(
 
@@ -95,7 +95,7 @@ public class walletcontroller {
 
 
     // WITHDRAW
-    @PostMapping("/wallets/{msisdn}/withdraw")
+    @PostMapping("/wallets/withdraw/{msisdn}")
     public ResponseEntity<walletresponse>
     withdraw(@PathVariable String msisdn,
              @Valid
@@ -109,7 +109,7 @@ public class walletcontroller {
 
 
     // GET ALL TRANSACTIONS
-    @GetMapping("/wallets/{msisdn}/transactions")
+    @GetMapping("/wallets/transactions/{msisdn}")
     public ResponseEntity<List<transactionresponse>>
     getTransactions(@PathVariable String msisdn) {
 
