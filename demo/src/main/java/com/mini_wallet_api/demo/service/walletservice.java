@@ -11,18 +11,13 @@ import com.mini_wallet_api.demo.exception.customexception;
 import com.mini_wallet_api.demo.repository.transactionrepository;
 import com.mini_wallet_api.demo.repository.walletrepository;
 
-
-
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.annotation.Propagation;
-
 import lombok.extern.slf4j.Slf4j;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -31,27 +26,45 @@ import java.util.stream.Collectors;
 
 @Service
 @Slf4j
-
 public class walletservice {
 
-    @Autowired
-    private walletrepository walletRepository;
+    private final walletrepository walletRepository;
 
-    @Autowired
-    private transactionrepository transactionRepository;
-    @Autowired
-    private transactionservice transactionservice;
+    private final transactionrepository transactionRepository;
+
+    private final transactionservice transactionservice;
+
+
+    // CONSTRUCTOR INJECTION
+    public walletservice(
+            walletrepository walletRepository,
+            transactionrepository transactionRepository,
+            transactionservice transactionservice
+    ) {
+
+        this.walletRepository = walletRepository;
+
+        this.transactionRepository =
+                transactionRepository;
+
+        this.transactionservice =
+                transactionservice;
+    }
 
 
     // CREATE USER
     @Transactional
     public wallet createUser(String msisdn) {
 
-        log.info("Creating user: {}", msisdn);
+        log.info(
+                "Creating user: {}",
+                msisdn
+        );
 
-        wallet existingWallet = walletRepository
-                .findByMsisdn(msisdn)
-                .orElse(null);
+        wallet existingWallet =
+                walletRepository
+                        .findByMsisdn(msisdn)
+                        .orElse(null);
 
         if (existingWallet != null) {
 
@@ -73,7 +86,9 @@ public class walletservice {
 
     // GET BALANCE
     @Transactional(readOnly = true)
-    public walletresponse getBalance(String msisdn) {
+    public walletresponse getBalance(
+            String msisdn
+    ) {
 
         wallet wallet = getWallet(msisdn);
 
@@ -85,7 +100,8 @@ public class walletservice {
     @Transactional
     public walletresponse deposit(
             String msisdn,
-            amountrequest request) {
+            amountrequest request
+    ) {
 
         log.info(
                 "Deposit request for {} amount {}",
@@ -95,49 +111,12 @@ public class walletservice {
 
         wallet wallet = getWallet(msisdn);
 
-
-        if (request.getAmount()
-                .compareTo(BigDecimal.ZERO) <= 0) {
-
-            transaction failedTransaction =
-                    new transaction();
-
-            failedTransaction.setReferenceId(
-                    generateReferenceId()
-            );
-
-            failedTransaction.setTransactionType(
-                    transactiontype.CREDIT
-            );
-
-            failedTransaction.setAmount(
-                    request.getAmount()
-            );
-
-            failedTransaction.setAvailableBalance(
-                    wallet.getBalance()
-            );
-
-            failedTransaction.setStatus(
-                    transactionstatus.FAILED
-            );
-
-            failedTransaction.setWallet(wallet);
-
-            transactionservice.saveTransaction(
-                    failedTransaction
-            );
-
-            log.warn(
-                    "Failed deposit for {} due to invalid amount",
-                    msisdn
-            );
-
-            throw new customexception(
-                    "Amount must be greater than zero",
-                    HttpStatus.BAD_REQUEST
-            );
-        }
+        validateAmount(
+                wallet,
+                request.getAmount(),
+                transactiontype.CREDIT,
+                msisdn
+        );
 
         BigDecimal updatedBalance =
                 wallet.getBalance()
@@ -147,33 +126,13 @@ public class walletservice {
 
         walletRepository.save(wallet);
 
-
-        transaction transaction =
-                new transaction();
-
-        transaction.setReferenceId(
-                generateReferenceId()
-        );
-
-        transaction.setTransactionType(
-                transactiontype.CREDIT
-        );
-
-        transaction.setAmount(
-                request.getAmount()
-        );
-
-        transaction.setAvailableBalance(
-                updatedBalance
-        );
-
-        transaction.setStatus(
+        createTransaction(
+                wallet,
+                transactiontype.CREDIT,
+                request.getAmount(),
+                updatedBalance,
                 transactionstatus.SUCCESS
         );
-
-        transaction.setWallet(wallet);
-
-        transactionRepository.save(transaction);
 
         return mapWallet(wallet);
     }
@@ -183,7 +142,8 @@ public class walletservice {
     @Transactional
     public walletresponse withdraw(
             String msisdn,
-            amountrequest request) {
+            amountrequest request
+    ) {
 
         log.info(
                 "Withdraw request for {} amount {}",
@@ -192,79 +152,23 @@ public class walletservice {
         );
 
         wallet wallet = getWallet(msisdn);
-        if (request.getAmount()
-                .compareTo(BigDecimal.ZERO) <= 0) {
 
-            transaction failedTransaction =
-                    new transaction();
-
-            failedTransaction.setReferenceId(
-                    generateReferenceId()
-            );
-
-            failedTransaction.setTransactionType(
-                    transactiontype.DEBIT
-            );
-
-            failedTransaction.setAmount(
-                    request.getAmount()
-            );
-
-            failedTransaction.setAvailableBalance(
-                    wallet.getBalance()
-            );
-
-            failedTransaction.setStatus(
-                    transactionstatus.FAILED
-            );
-
-            failedTransaction.setWallet(wallet);
-
-            transactionservice.saveTransaction(
-                    failedTransaction
-            );
-
-            log.warn(
-                    "Failed withdraw for {} due to invalid amount",
-                    msisdn
-            );
-
-            throw new customexception(
-                    "Amount must be greater than zero",
-                    HttpStatus.BAD_REQUEST
-            );
-        }
+        validateAmount(
+                wallet,
+                request.getAmount(),
+                transactiontype.DEBIT,
+                msisdn
+        );
 
         if (wallet.getBalance()
                 .compareTo(request.getAmount()) < 0) {
 
-            transaction failedTransaction =
-                    new transaction();
-
-            failedTransaction.setReferenceId(
-                    generateReferenceId()
-            );
-
-            failedTransaction.setTransactionType(
-                    transactiontype.DEBIT
-            );
-
-            failedTransaction.setAmount(
-                    request.getAmount()
-            );
-
-            failedTransaction.setAvailableBalance(
-                    wallet.getBalance()
-            );
-
-            failedTransaction.setStatus(
+            createTransaction(
+                    wallet,
+                    transactiontype.DEBIT,
+                    request.getAmount(),
+                    wallet.getBalance(),
                     transactionstatus.FAILED
-            );
-
-            failedTransaction.setWallet(wallet);
-
-            transactionservice.saveTransaction(
-                    failedTransaction
             );
 
             log.warn(
@@ -286,33 +190,13 @@ public class walletservice {
 
         walletRepository.save(wallet);
 
-
-        transaction transaction =
-                new transaction();
-
-        transaction.setReferenceId(
-                generateReferenceId()
-        );
-
-        transaction.setTransactionType(
-                transactiontype.DEBIT
-        );
-
-        transaction.setAmount(
-                request.getAmount()
-        );
-
-        transaction.setAvailableBalance(
-                updatedBalance
-        );
-
-        transaction.setStatus(
+        createTransaction(
+                wallet,
+                transactiontype.DEBIT,
+                request.getAmount(),
+                updatedBalance,
                 transactionstatus.SUCCESS
         );
-
-        transaction.setWallet(wallet);
-
-        transactionRepository.save(transaction);
 
         return mapWallet(wallet);
     }
@@ -321,12 +205,14 @@ public class walletservice {
     // GET ALL TRANSACTIONS
     @Transactional(readOnly = true)
     public List<transactionresponse>
-    getTransactions(String msisdn){
+    getTransactions(String msisdn) {
 
         wallet wallet = getWallet(msisdn);
 
         return transactionRepository
-                .findByWallet(wallet)
+                .findByWalletOrderByCreatedAtDesc(
+                        wallet
+                )
                 .stream()
                 .map(this::mapTransaction)
                 .collect(Collectors.toList());
@@ -337,7 +223,8 @@ public class walletservice {
     @Transactional(readOnly = true)
     public transactionresponse
     getTransactionByReferenceId(
-            String referenceId) {
+            String referenceId
+    ) {
 
         transaction transaction =
                 transactionRepository
@@ -351,11 +238,118 @@ public class walletservice {
         return mapTransaction(transaction);
     }
 
+//get transactions by status and type
+    @Transactional(readOnly = true)
+    public List<transactionresponse>
+    getTransactionsByFilters(
+
+            transactiontype type,
+
+            transactionstatus status
+    ) {
+
+        List<transaction> transactions;
+
+        if (type != null && status != null) {
+
+            transactions =
+                    transactionRepository
+                            .findByTransactionTypeAndStatusOrderByCreatedAtDesc(
+                                    type,
+                                    status
+                            );
+
+        } else if (type != null) {
+
+            transactions =
+                    transactionRepository
+                            .findByTransactionTypeOrderByCreatedAtDesc(
+                                    type
+                            );
+
+        } else if (status != null) {
+
+            transactions =
+                    transactionRepository
+                            .findByStatusOrderByCreatedAtDesc(
+                                    status
+                            );
+
+        } else {
+
+            transactions =
+                    transactionRepository.findAll();
+        }
+
+        return transactions.stream()
+                .map(this::mapTransaction)
+                .toList();
+    }
+//get user transactions
+@Transactional(readOnly = true)
+public List<transactionresponse>
+getUserTransactions(
+
+        String msisdn,
+
+        transactiontype type,
+
+        transactionstatus status
+) {
+
+    wallet wallet = getWallet(msisdn);
+
+    List<transaction> transactions;
+
+    if (type != null && status != null) {
+
+        transactions =
+                transactionRepository
+                        .findByWalletAndTransactionTypeAndStatusOrderByCreatedAtDesc(
+                                wallet,
+                                type,
+                                status
+                        );
+
+    } else if (type != null) {
+
+        transactions =
+                transactionRepository
+                        .findByWalletAndTransactionTypeOrderByCreatedAtDesc(
+                                wallet,
+                                type
+                        );
+
+    } else if (status != null) {
+
+        transactions =
+                transactionRepository
+                        .findByWalletAndStatusOrderByCreatedAtDesc(
+                                wallet,
+                                status
+                        );
+
+    } else {
+
+        transactions =
+                transactionRepository
+                        .findByWalletOrderByCreatedAtDesc(
+                                wallet
+                        );
+    }
+
+    return transactions.stream()
+            .map(this::mapTransaction)
+            .toList();
+}
 
     // GET ALL USERS
     @Transactional(readOnly = true)
     public List<walletresponse>
-    getAllUsers(int page, int size) {
+    getAllUsers(
+            int page,
+            int size
+    ) {
 
         Pageable pageable =
                 PageRequest.of(page, size);
@@ -367,19 +361,19 @@ public class walletservice {
                 .collect(Collectors.toList());
     }
 
+
     // DELETE USER
     @Transactional
     public void deleteUser(String msisdn) {
 
         wallet wallet = getWallet(msisdn);
 
-        transactionRepository.deleteAll(
-                transactionRepository.findByWallet(wallet)
-        );
-
         walletRepository.delete(wallet);
 
-        log.info("Deleted user: {}", msisdn);
+        log.info(
+                "Deleted user: {}",
+                msisdn
+        );
     }
 
 
@@ -396,18 +390,86 @@ public class walletservice {
     }
 
 
+    // VALIDATE AMOUNT
+    private void validateAmount(
+            wallet wallet,
+            BigDecimal amount,
+            transactiontype type,
+            String msisdn
+    ) {
+
+        if (amount == null ||
+                amount.compareTo(BigDecimal.ZERO) <= 0) {
+
+            createTransaction(
+                    wallet,
+                    type,
+                    amount,
+                    wallet.getBalance(),
+                    transactionstatus.FAILED
+            );
+
+            log.warn(
+                    "Invalid amount request from {}",
+                    msisdn
+            );
+
+            throw new customexception(
+                    "Amount must be greater than zero",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+    }
+
+
+    // CREATE TRANSACTION
+    private void createTransaction(
+            wallet wallet,
+            transactiontype type,
+            BigDecimal amount,
+            BigDecimal balance,
+            transactionstatus status
+    ) {
+
+        transaction transaction =
+                new transaction();
+
+        transaction.setReferenceId(
+                generateReferenceId()
+        );
+
+        transaction.setTransactionType(type);
+
+        transaction.setAmount(amount);
+
+        transaction.setAvailableBalance(balance);
+
+        transaction.setStatus(status);
+
+        transaction.setWallet(wallet);
+
+        transactionservice
+                .saveTransaction(transaction);
+    }
+
+
     // MAP WALLET RESPONSE
     private walletresponse mapWallet(
-            wallet wallet) {
+            wallet wallet
+    ) {
 
         walletresponse response =
                 new walletresponse();
 
         response.setId(wallet.getId());
 
-        response.setMsisdn(wallet.getMsisdn());
+        response.setMsisdn(
+                wallet.getMsisdn()
+        );
 
-        response.setBalance(wallet.getBalance());
+        response.setBalance(
+                wallet.getBalance()
+        );
 
         response.setCreatedAt(
                 wallet.getCreatedAt()
@@ -418,8 +480,10 @@ public class walletservice {
 
 
     // MAP TRANSACTION RESPONSE
-    private transactionresponse mapTransaction(
-            transaction transaction) {
+    private transactionresponse
+    mapTransaction(
+            transaction transaction
+    ) {
 
         transactionresponse response =
                 new transactionresponse();
@@ -463,5 +527,4 @@ public class walletservice {
                         .substring(0, 8)
                         .toUpperCase();
     }
-
 }

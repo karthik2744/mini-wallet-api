@@ -6,7 +6,9 @@ import com.mini_wallet_api.demo.dto.amountrequest;
 import com.mini_wallet_api.demo.dto.transactionresponse;
 import com.mini_wallet_api.demo.dto.walletresponse;
 import com.mini_wallet_api.demo.entity.wallet;
+import com.mini_wallet_api.demo.enums.transactionstatus;
 import com.mini_wallet_api.demo.service.walletservice;
+import com.mini_wallet_api.demo.enums.transactiontype;
 
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -108,18 +110,6 @@ public class walletcontroller {
     }
 
 
-    // GET ALL TRANSACTIONS
-    @GetMapping("/wallets/transactions/{msisdn}")
-    public ResponseEntity<List<transactionresponse>>
-    getTransactions(@PathVariable String msisdn) {
-
-        List<transactionresponse> responses =
-                walletService.getTransactions(msisdn);
-
-        return ResponseEntity.ok(responses);
-    }
-
-
     // GET SINGLE TRANSACTION
     @GetMapping("/transactions/{referenceId}")
     public ResponseEntity<transactionresponse>
@@ -152,6 +142,49 @@ public class walletcontroller {
                 );
 
         return ResponseEntity.ok(responses);
+    }
+
+
+//get transactions by status
+    @GetMapping("/transactions")
+    public ResponseEntity<List<transactionresponse>>
+    getTransactions(
+
+            @RequestParam(required = false)
+            transactiontype type,
+
+            @RequestParam(required = false)
+            transactionstatus status
+    ) {
+
+        return ResponseEntity.ok(
+                walletService.getTransactionsByFilters(
+                        type,
+                        status
+                )
+        );
+    }
+    //get user transactions
+    @GetMapping("/wallets/transactions/{msisdn}")
+    public ResponseEntity<List<transactionresponse>>
+    getUserTransactions(
+
+            @PathVariable String msisdn,
+
+            @RequestParam(required = false)
+            transactiontype type,
+
+            @RequestParam(required = false)
+            transactionstatus status
+    ) {
+
+        return ResponseEntity.ok(
+                walletService.getUserTransactions(
+                        msisdn,
+                        type,
+                        status
+                )
+        );
     }
 
 }
