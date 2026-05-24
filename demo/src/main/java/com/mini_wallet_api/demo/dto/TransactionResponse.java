@@ -1,22 +1,28 @@
 package com.mini_wallet_api.demo.dto;
 
+import com.mini_wallet_api.demo.enums.TransactionStatus;
+import com.mini_wallet_api.demo.enums.TransactionType;
+
 import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
-public class transactionresponse {
+
+public class TransactionResponse {
 
     private String referenceId;
 
-    private String transactionType;
+    private String mobileNumber;
+
+    private TransactionType type;
 
     private BigDecimal amount;
 
     private BigDecimal availableBalance;
 
-    private String status;
+    private TransactionStatus status;
 
     private LocalDateTime createdAt;
 }

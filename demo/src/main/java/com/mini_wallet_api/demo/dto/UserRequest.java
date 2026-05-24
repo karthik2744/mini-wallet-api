@@ -1,6 +1,6 @@
 package com.mini_wallet_api.demo.dto;
 
-public class userrequest {
+public class UserRequest {
 
     private String msisdn;
 

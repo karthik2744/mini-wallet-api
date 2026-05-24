@@ -1,8 +1,10 @@
 package com.mini_wallet_api.demo.entity;
 
+import com.mini_wallet_api.demo.dto.WalletResponse;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
+
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -17,7 +19,7 @@ import java.util.List;
         }
 )
 @Data
-public class wallet {
+public class Wallet extends WalletResponse {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -33,5 +35,5 @@ public class wallet {
     private LocalDateTime createdAt;
 
     @OneToMany(mappedBy = "wallet")
-    private List<transaction> transactions;
+    private List<Transaction> transactions;
 }

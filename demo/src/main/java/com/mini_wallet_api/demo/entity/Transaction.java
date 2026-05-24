@@ -1,7 +1,7 @@
 package com.mini_wallet_api.demo.entity;
 
-import com.mini_wallet_api.demo.enums.transactionstatus;
-import com.mini_wallet_api.demo.enums.transactiontype;
+import com.mini_wallet_api.demo.enums.TransactionStatus;
+import com.mini_wallet_api.demo.enums.TransactionType;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "transactions")
 @Data
-public class transaction {
+public class Transaction {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -22,18 +22,18 @@ public class transaction {
     private String referenceId;
 
     @Enumerated(EnumType.STRING)
-    private transactiontype transactionType;
+    private TransactionType type;
     private BigDecimal amount;
 
     private BigDecimal availableBalance;
 
     @Enumerated(EnumType.STRING)
-    private transactionstatus status;
+    private TransactionStatus status;
 
     @CreationTimestamp
     private LocalDateTime createdAt;
 
     @ManyToOne
     @JoinColumn(name = "wallet_id")
-    private wallet wallet;
+    private Wallet wallet;
 }

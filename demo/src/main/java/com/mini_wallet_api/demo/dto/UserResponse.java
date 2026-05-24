@@ -2,7 +2,7 @@ package com.mini_wallet_api.demo.dto;
 
 import java.time.LocalDateTime;
 
-public class userresponse {
+public class UserResponse {
 
     private String msisdn;
 

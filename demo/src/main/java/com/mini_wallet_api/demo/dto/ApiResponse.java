@@ -2,7 +2,7 @@ package com.mini_wallet_api.demo.dto;// apiresponse.java
 
 import java.time.LocalDateTime;
 
-public class Apiresponse<T> {
+public class ApiResponse<T> {
 
     private LocalDateTime timestamp;
 

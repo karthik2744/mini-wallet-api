@@ -1,6 +1,6 @@
 package com.mini_wallet_api.demo.enums;
 
-public enum transactiontype {
+public enum TransactionType {
 
     CREDIT,
     DEBIT
