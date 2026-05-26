@@ -1,0 +1,5 @@
+.idea
+mini-wallet-frontend/node_modules
+mini-wallet-frontend/dist
+demo/target
+.env
