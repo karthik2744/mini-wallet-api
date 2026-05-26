@@ -11,6 +11,7 @@ import com.mini_wallet_api.demo.enums.Role;
 import com.mini_wallet_api.demo.exception.CustomException;
 import com.mini_wallet_api.demo.repository.UserRepository;
 
+import com.mini_wallet_api.demo.repository.WalletRepository;
 import com.mini_wallet_api.demo.security.JwtService;
 
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import org.springframework.stereotype.Service;
+import java.math.BigDecimal;
+import com.mini_wallet_api.demo.entity.Wallet;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -31,29 +35,27 @@ public class AuthService {
 
     private final UserRepository userRepository;
 
+    private final WalletRepository walletRepository;
+
     private final PasswordEncoder passwordEncoder;
 
     // =========================================
     // REGISTER
     // =========================================
 
+    @Transactional
+
     public String register(
             RegisterRequest request
     ) {
 
-        log.info(
-                "Register request received for {}",
-                request.getMobileNumber()
-        );
+        if (
 
-        if (userRepository.findByMobileNumber(
-                request.getMobileNumber()
-        ).isPresent()) {
+                userRepository.existsByMobileNumber(
 
-            log.warn(
-                    "Registration failed. Mobile already exists {}",
-                    request.getMobileNumber()
-            );
+                        request.getMobileNumber()
+                )
+        ) {
 
             throw new CustomException(
 
@@ -63,39 +65,57 @@ public class AuthService {
             );
         }
 
-        User newUser = User.builder()
+        User user =
 
-                .name(
-                        request.getName()
-                )
+                User.builder()
 
-                .mobileNumber(
-                        request.getMobileNumber()
-                )
-
-                .password(
-                        passwordEncoder.encode(
-                                request.getPassword()
+                        .name(
+                                request.getName()
                         )
-                )
 
-                .role(Role.USER)
+                        .mobileNumber(
+                                request.getMobileNumber()
+                        )
 
-                .build();
+                        .password(
 
-        userRepository.save(newUser);
+                                passwordEncoder.encode(
 
-        log.info(
-                "User registered successfully {}",
-                request.getMobileNumber()
-        );
+                                        request.getPassword()
+                                )
+                        )
+
+                        .role(Role.USER)
+
+                        .active(true)
+
+                        .build();
+
+        // SAVE USER
+
+        userRepository.save(user);
+
+        // CREATE WALLET
+
+        Wallet wallet =
+
+                Wallet.builder()
+
+                        .msisdn(
+                                user.getMobileNumber()
+                        )
+
+                        .balance(BigDecimal.ZERO)
+
+                        .build();
+
+        walletRepository.save(wallet);
 
         return "User registered successfully";
     }
 
-    // =========================================
+
     // LOGIN
-    // =========================================
 
     public String login(
             LoginRequest request
